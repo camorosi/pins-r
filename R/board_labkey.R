@@ -78,18 +78,34 @@ pin_exists.pins_board_labkey <- function(board, name, ...) {
   Rlabkey::labkey.webdav.pathExists(
     baseUrl = board$base_url,
     folderPath = board$folder,
-    remoteFilePath = paste0(board$subdir, "/", name)
+    remoteFilePath = fs::path(board$subdir, name)
   )
 }
 
 #' @export
-# pin_delete.pins_board_labkey <- function(board, names, ...) {
-#   for (name in names) {
-#     # check_pin_exists(board, name)
-#     # labkey.webdav.delete()
-#   }
-#   invisible(board)
-# }
+pin_delete.pins_board_labkey <- function(board, names, ...) {
+  for (name in names) {
+    check_pin_exists(board, name)
+    Rlabkey::labkey.webdav.delete(
+      baseUrl = board$base_url,
+      folderPath = board$folder,
+      remoteFilePath = fs::path(board$subdir, name),
+      fileSet='@files'
+    )
+  }
+  invisible(board)
+}
+
+#' @export
+pin_version_delete.pins_board_labkey <- function(board, name, version, ...) {
+  Rlabkey::labkey.webdav.delete(
+    baseUrl = board$base_url,
+    folderPath = board$folder,
+    remoteFilePath = fs::path(board$subdir, name, version),
+    fileSet='@files'
+  )
+}
+
 
 #' @export
 pin_versions.pins_board_labkey <- function(board, name, ...) {
@@ -131,30 +147,33 @@ pin_meta.pins_board_labkey <- function(board, name, version = NULL, ...) {
     baseUrl = board$base_url,
     folderPath = board$folder,
     remoteFilePath = fs::path(board$subdir, metadata_key),
-    localFilePath = fs::path(path_version, metadata_key)
+    localFilePath = fs::path(board$cache, metadata_key)
   )
-  # TODO still need to implement this
-  # local_meta(
-  #   read_meta(fs::path(board$cache, name, version)),
-  #   name = name,
-  #   dir = path_version,
-  #   version = version
-  # )
+  local_meta(
+    read_meta(fs::path(board$cache, name, version)),
+    name = name,
+    dir = path_version,
+    version = version
+  )
 }
 
 #' @export
-# pin_fetch.pins_board_labkey <- function(board, name, version = NULL, ...) {
-#   meta <- pin_meta(board, name, version = version)
-#   # cache_touch(board, meta)
-#
-#   for (file in meta$file) {
-#     key <- fs::path(name, meta$local$version, file)
-#     # TODO implement this
-#     # labkey_download(board, key, immutable = TRUE)
-#   }
-#
-#   meta
-# }
+pin_fetch.pins_board_labkey <- function(board, name, version = NULL, ...) {
+  meta <- pin_meta(board, name, version = version)
+  cache_touch(board, meta)
+
+  for (file in meta$file) {
+    key <- fs::path(name, meta$local$version, file)
+    Rlabkey::labkey.webdav.get(
+      baseUrl = board$base_url,
+      folderPath = board$folder,
+      remoteFilePath = fs::path(board$subdir, key),
+      localFilePath = fs::path(board$cache, key)
+    )
+  }
+
+  meta
+}
 
 #' @export
 pin_store.pins_board_labkey <- function(board, name, paths, metadata,
